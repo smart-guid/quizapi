@@ -5,12 +5,12 @@ This is a simple challenge to be used as part of an interview process for .NET b
 #### Make a copy of this repo. Yes, we know that "Fork" exists, but please don't use it.
 
 ## Rules
-1. You are free to use any tool you like when developing. Important note: as we are targeting .NET 6 it's not possible to build the solution in VS 2019. Potential alternatives include VS 2022 and VS Code.
-2. You can use as much time as you like, but the intention is not to have you spend more than a couple of hours.
-3. You are free to pull in any framework or libraries in order to solve the challenge, but be prepared to reason about your choices.
-4. Use the patterns and practices you think are best on any part of the challenge, again be prepared to reason about your choices.
-5. Commit your changes as you solve the various challenges and whenever you feel is a good time to commit. Let the commit message describe what part you solved.
-6. Keep initial commit unchanged, so we can use git diff to see your changes.
+1. Keep the initial commits free from your own changes, so we can use git log and git show to see what you did.
+2. You are free to use any tool you like when developing. Important note: as we are targeting .NET 6 it's not possible to build the solution in VS 2019. Potential alternatives include VS 2022 and VS Code.
+3. You can use as much time as you like, but the intention is not to have you spend more than a couple of hours.
+4. You are free to pull in any framework or libraries in order to solve the challenge, but be prepared to reason about your choices.
+5. Use the patterns and practices you think are best on any part of the challenge, again be prepared to reason about your choices.
+6. Commit your changes as you solve the various challenges and whenever you feel is a good time to commit. Let the commit message describe what part you solved.
 
 ## Background information
 The code is a quiz solution based on .NET Core. You have a quiz client project and a quiz service project, both have corresponding test projects.
