@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using QuizClient.Model;
 using QuizClient.Tests;
 
 namespace QuizClient;
@@ -21,6 +22,16 @@ public class QuizClient
         _httpClient = httpClient;
     }
 
+    public async Task<Response<bool>> SubmitQuestionAnswer(int id, int qid, int aId, CancellationToken cancellationToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_quizServiceUri, $"/api/quizzes/{id}/questions/{qid}/submit/{aId}"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        return response.StatusCode == HttpStatusCode.OK ?
+            new Response<bool>(response.StatusCode, await ReadAndDeserializeAsync<bool>(response)) :
+            new Response<bool>(response.StatusCode, false, await ReadErrorAsync(response));
+    }
+
     public async Task<Response<IEnumerable<Quiz>>> GetQuizzesAsync(CancellationToken cancellationToken)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_quizServiceUri, "/api/quizzes"));
@@ -31,14 +42,14 @@ public class QuizClient
             new Response<IEnumerable<Quiz>>(response.StatusCode, new Quiz[0], await ReadErrorAsync(response));
     }
 
-    public async Task<Response<Quiz>> GetQuizAsync(int id, CancellationToken cancellationToken)
+    public async Task<Response<QuizResponse>> GetQuizAsync(int id, CancellationToken cancellationToken)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_quizServiceUri, "/api/quizzes/" + id));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         var response = await _httpClient.SendAsync(request, cancellationToken);
         return response.StatusCode == HttpStatusCode.OK ?
-            new Response<Quiz>(response.StatusCode, await ReadAndDeserializeAsync<Quiz>(response)) :
-            new Response<Quiz>(response.StatusCode, Quiz.NotFound, await ReadErrorAsync(response));
+            new Response<QuizResponse>(response.StatusCode, await ReadAndDeserializeAsync<QuizResponse>(response)) :
+            new Response<QuizResponse>(response.StatusCode, null, await ReadErrorAsync(response));
     }
 
     public async Task<Response<Uri>> PostQuizAsync(Quiz quiz, CancellationToken cancellationToken)
@@ -83,7 +94,7 @@ public class QuizClient
             new Response<Uri>(response.StatusCode, null, await ReadErrorAsync(response));
     }
 
-    public async Task<Response<object>> PutQuestionAsync(int quizId, int questionId, QuizQuestion question, CancellationToken cancellationToken)
+    public async Task<Response<object>> PutQuestionAsync(int quizId, int questionId, QuizQuestionAnswer question, CancellationToken cancellationToken)
     {
         var request =
             new HttpRequestMessage(HttpMethod.Put, new Uri(_quizServiceUri, $"/api/quizzes/{quizId}/questions/{questionId}"))
@@ -127,6 +138,13 @@ public class QuizClient
 public struct QuizQuestion
 {
     public string Text { get; set; }
+}
+
+public struct QuizQuestionAnswer
+{
+    public string Text { get; set; }
+
+    public int CorrectAnswerId { get; set; }
 }
 
 public struct Response<T>

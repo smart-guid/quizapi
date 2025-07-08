@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
-namespace QuizService.Model;
+namespace QuizClient.Model;
 
-public class QuizResponseModel
+public class QuizResponse
 {
     public class AnswerItem
     {
@@ -23,3 +23,4 @@ public class QuizResponseModel
     public IEnumerable<QuestionItem> Questions { get; set; }
     public IDictionary<string, string> Links { get; set; }
 }
+
