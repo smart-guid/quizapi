@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 
 namespace QuizService.Controllers;
 
+//TODO: change id, qid, aid parameters to be more descriptive
+//TODO: Add [ApiController] above your controller class to automatically enfore model binding & validation
 [Route("api/quizzes")]
 public class QuizController : Controller
 {
@@ -36,6 +38,7 @@ public class QuizController : Controller
             });
     }
 
+    //TODO: add db code to QuizRepository
     // GET api/quizzes/5
     [HttpGet("{id}")]
     public ActionResult<QuizResponseModel> Get(int id)
@@ -84,11 +87,13 @@ public class QuizController : Controller
     [HttpPost]
     public IActionResult Post([FromBody] QuizCreateModel value)
     {
+        //TODO: potential sql injection risk - use parameterized sql
         var sql = $"INSERT INTO Quiz (Title) VALUES('{value.Title}'); SELECT LAST_INSERT_ROWID();";
         var id = _connection.ExecuteScalar(sql);
         return Created($"/api/quizzes/{id}", null);
     }
 
+    //TODO: add db code to QuizRepository
     // PUT api/quizzes/5
     [HttpPut("{id}")]
     public IActionResult Put(int id, [FromBody] QuizUpdateModel value)
@@ -100,6 +105,7 @@ public class QuizController : Controller
         return NoContent();
     }
 
+    //TODO: add db code to QuizRepository
     // DELETE api/quizzes/5
     [HttpDelete("{id}")]
     public IActionResult Delete(int id)
@@ -111,6 +117,7 @@ public class QuizController : Controller
         return NoContent();
     }
 
+    //TODO: add db code to QuestionRepository
     // POST api/quizzes/5/questions
     [HttpPost]
     [Route("{id}/questions")]
@@ -127,6 +134,7 @@ public class QuizController : Controller
         return Created($"/api/quizzes/{id}/questions/{questionId}", null);
     }
 
+    //TODO: add db code to QuestionRepository
     // PUT api/quizzes/5/questions/6
     [HttpPut("{id}/questions/{qid}")]
     public IActionResult PutQuestion(int id, int qid, [FromBody] QuestionUpdateModel value)
@@ -138,6 +146,7 @@ public class QuizController : Controller
         return NoContent();
     }
 
+    //TODO: add db code to QuestionRepository
     // DELETE api/quizzes/5/questions/6
     [HttpDelete]
     [Route("{id}/questions/{qid}")]
@@ -148,6 +157,7 @@ public class QuizController : Controller
         return NoContent();
     }
 
+    //TODO: add db code to AnswerRepository
     // POST api/quizzes/5/questions/6/answers
     [HttpPost]
     [Route("{id}/questions/{qid}/answers")]
@@ -158,6 +168,7 @@ public class QuizController : Controller
         return Created($"/api/quizzes/{id}/questions/{qid}/answers/{answerId}", null);
     }
 
+    //TODO: add db code to AnswerRepository
     // PUT api/quizzes/5/questions/6/answers/7
     [HttpPut("{id}/questions/{qid}/answers/{aid}")]
     public IActionResult PutAnswer(int id, int qid, int aid, [FromBody] AnswerUpdateModel value)
@@ -169,6 +180,7 @@ public class QuizController : Controller
         return NoContent();
     }
 
+    //TODO: add db code to AnswerRepository
     // DELETE api/quizzes/5/questions/6/answers/7
     [HttpDelete]
     [Route("{id}/questions/{qid}/answers/{aid}")]
@@ -179,6 +191,8 @@ public class QuizController : Controller
         return NoContent();
     }
 
+    //TODO: add db code to UserQuizRepository
+    //TODO: save each submitted answer to database (suggested schema in 003-CreateUserAnswerTable.sql)    
     // POST api/quiz/5/submit/5/5
     [HttpGet]
     [Route("{id}/questions/{qid}/submit/{aId}")]
