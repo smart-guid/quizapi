@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Newtonsoft.Json;
 using QuizClient;
-using QuizService.Model;
+using QuizService.Application.Question.Dtos;
+using QuizService.Application.Quiz.Dtos;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +24,7 @@ public class QuizzesControllerTest
     [Fact]
     public async Task PostNewQuizAddsQuiz()
     {
-        var quiz = new QuizCreateModel("Test title");
+        var quiz = new QuizCreateModel { Title = "Test title" };
         using (var testHost = new TestServer(new WebHostBuilder()
                    .UseStartup<Startup>()))
         {
@@ -79,7 +80,7 @@ public class QuizzesControllerTest
                    .UseStartup<Startup>()))
         {
             var client = testHost.CreateClient();
-            var question = new QuestionCreateModel("The answer to everything is what?");
+            var question = new QuestionCreateModel { Text = "The answer to everything is what?" };
             var content = new StringContent(JsonConvert.SerializeObject(question));
             content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var response = await client.PostAsync(new Uri(testHost.BaseAddress, $"{QuizApiEndPoint}"), content);

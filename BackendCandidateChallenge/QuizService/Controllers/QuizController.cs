@@ -1,210 +1,216 @@
-﻿using Dapper;
-using Microsoft.AspNetCore.Mvc;
-using QuizService.Model;
-using QuizService.Model.Domain;
-using QuizService.Repositories;
+﻿using Microsoft.AspNetCore.Mvc;
+using QuizService.Application.Answer.Commands;
+using QuizService.Application.Answer.Dtos;
+using QuizService.Application.Interfaces;
+using QuizService.Application.Question.Commands;
+using QuizService.Application.Question.Dtos;
+using QuizService.Application.Quiz.Commands;
+using QuizService.Application.Quiz.Dtos;
+using QuizService.Application.Quiz.Queries;
 using System.Collections.Generic;
-using System.Data;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace QuizService.Controllers;
 
-//TODO: change id, qid, aid parameters to be more descriptive
-//TODO: Add [ApiController] above your controller class to automatically enfore model binding & validation
 [Route("api/quizzes")]
 public class QuizController : Controller
 {
-    private readonly IDbConnection _connection;
-    private readonly IQuizRepository _quizRepository;
+    private readonly IQuizCommandHandler _quizCommandHandler;
+    private readonly IQuestionCommandHandler _questionCommandHandler;
+    private readonly IAnswerCommandHandler _answerCommandHandler;
+    private readonly IQuizQueryHandler _quizQueryHandler;
 
-    public QuizController(IDbConnection connection, IQuizRepository quizRepository)
+    public QuizController(
+        IQuizCommandHandler quizCommandHandler,
+        IQuestionCommandHandler questionCommandHandler,
+        IAnswerCommandHandler answerCommandHandler,
+        IQuizQueryHandler quizQueryHandler)
     {
-        _connection = connection;
-        _quizRepository = quizRepository;
+        _quizCommandHandler = quizCommandHandler;
+        _questionCommandHandler = questionCommandHandler;
+        _answerCommandHandler = answerCommandHandler;
+        _quizQueryHandler = quizQueryHandler;
     }
 
     // GET api/quizzes
     [HttpGet]
-    public async Task<IEnumerable<QuizResponseModel>> Get()
-    {
-        var quizzes = await _quizRepository.GetAsync();
-
-        return quizzes.Select(quiz =>
-            new QuizResponseModel
-            {
-                Id = quiz.Id,
-                Title = quiz.Title
-            });
+    public async Task<ActionResult<IEnumerable<QuizResponseModel>>> GetAllQuizzes()
+    {    
+        var result = await _quizQueryHandler.HandleAsync();
+        return Ok(result);
     }
 
-    //TODO: add db code to QuizRepository
-    // GET api/quizzes/5
-    [HttpGet("{id}")]
-    public ActionResult<QuizResponseModel> Get(int id)
+    // GET api/quizzes/{quizId}
+    [HttpGet("{quizId}")]
+    public async Task<ActionResult<QuizResponseModel>> GetQuiz(int quizId)
     {
-        const string quizSql = "SELECT * FROM Quiz WHERE Id = @Id;";
-        var quiz = _connection.QueryFirstOrDefault<Quiz>(quizSql, new { Id = id });
-        if (quiz == null)
+        var query = new GetQuizByIdQuery { QuizId = quizId };
+        var result = await _quizQueryHandler.HandleAsync(query);
+
+        if (result == null)
             return NotFound();
-        const string questionsSql = "SELECT * FROM Question WHERE QuizId = @QuizId;";
-        var questions = _connection.Query<Question>(questionsSql, new { QuizId = id });
-        const string answersSql = "SELECT a.Id, a.Text, a.QuestionId FROM Answer a INNER JOIN Question q ON a.QuestionId = q.Id WHERE q.QuizId = @QuizId;";
-        var answers = _connection.Query<Answer>(answersSql, new { QuizId = id })
-            .Aggregate(new Dictionary<int, IList<Answer>>(), (dict, answer) =>
-            {
-                if (!dict.ContainsKey(answer.QuestionId))
-                    dict.Add(answer.QuestionId, new List<Answer>());
-                dict[answer.QuestionId].Add(answer);
-                return dict;
-            });
-        return new QuizResponseModel
-        {
-            Id = quiz.Id,
-            Title = quiz.Title,
-            Questions = questions.Select(question => new QuizResponseModel.QuestionItem
-            {
-                Id = question.Id,
-                Text = question.Text,
-                Answers = answers.ContainsKey(question.Id)
-                    ? answers[question.Id].Select(answer => new QuizResponseModel.AnswerItem
-                    {
-                        Id = answer.Id,
-                        Text = answer.Text
-                    })
-                    : new QuizResponseModel.AnswerItem[0],
-                CorrectAnswerId = question.CorrectAnswerId
-            }),
-            Links = new Dictionary<string, string>
-            {
-                {"self", $"/api/quizzes/{id}"},
-                {"questions", $"/api/quizzes/{id}/questions"}
-            }
-        };
-    }  
+
+        return Ok(result);
+    }
 
     // POST api/quizzes
     [HttpPost]
-    public IActionResult Post([FromBody] QuizCreateModel value)
+    public async Task<IActionResult> CreateQuiz([FromBody] QuizCreateModel model)
     {
-        //TODO: potential sql injection risk - use parameterized sql
-        var sql = $"INSERT INTO Quiz (Title) VALUES('{value.Title}'); SELECT LAST_INSERT_ROWID();";
-        var id = _connection.ExecuteScalar(sql);
-        return Created($"/api/quizzes/{id}", null);
+        var command = new CreateQuizCommand { Title = model.Title };
+        var quizId = await _quizCommandHandler.HandleAsync(command);
+
+        return Created($"/api/quizzes/{quizId}", null);
     }
 
-    //TODO: add db code to QuizRepository
-    // PUT api/quizzes/5
-    [HttpPut("{id}")]
-    public IActionResult Put(int id, [FromBody] QuizUpdateModel value)
+    // PUT api/quizzes/{quizId}
+    [HttpPut("{quizId}")]
+    public async Task<IActionResult> UpdateQuiz(int quizId, [FromBody] QuizUpdateModel model)
     {
-        const string sql = "UPDATE Quiz SET Title = @Title WHERE Id = @Id";
-        int rowsUpdated = _connection.Execute(sql, new { Id = id, Title = value.Title });
-        if (rowsUpdated == 0)
+        var command = new UpdateQuizCommand { Id = quizId, Title = model.Title };
+        var success = await _quizCommandHandler.HandleAsync(command);
+
+        if (!success)
             return NotFound();
+
         return NoContent();
     }
 
-    //TODO: add db code to QuizRepository
-    // DELETE api/quizzes/5
-    [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    // DELETE api/quizzes/{quizId}
+    [HttpDelete("{quizId}")]
+    public async Task<IActionResult> DeleteQuiz(int quizId)
     {
-        const string sql = "DELETE FROM Quiz WHERE Id = @Id";
-        int rowsDeleted = _connection.Execute(sql, new { Id = id });
-        if (rowsDeleted == 0)
+        var command = new DeleteQuizCommand { Id = quizId };
+        var success = await _quizCommandHandler.HandleAsync(command);
+
+        if (!success)
             return NotFound();
+
         return NoContent();
     }
 
-    //TODO: add db code to QuestionRepository
-    // POST api/quizzes/5/questions
-    [HttpPost]
-    [Route("{id}/questions")]
-    public IActionResult PostQuestion(int id, [FromBody] QuestionCreateModel value)
+
+    // POST api/quizzes/{quizId}/questions
+    [HttpPost("{quizId}/questions")]
+    public async Task<IActionResult> CreateQuestion(int quizId, [FromBody] QuestionCreateModel model)
     {
-        var quiz = this.Get(id);
-        if (quiz.Value == null)
+        var command = new CreateQuestionCommand
+        {
+            QuizId = quizId,
+            Text = model.Text
+        };
+        var questionId = await _questionCommandHandler.HandleAsync(command);
+
+        if (questionId == -1)
         {
             return NotFound();
         }
 
-        const string sql = "INSERT INTO Question (Text, QuizId) VALUES(@Text, @QuizId); SELECT LAST_INSERT_ROWID();";
-        var questionId = _connection.ExecuteScalar(sql, new { Text = value.Text, QuizId = id });
-        return Created($"/api/quizzes/{id}/questions/{questionId}", null);
+        return Created($"/api/quizzes/{quizId}/questions/{questionId}", null);
     }
 
-    //TODO: add db code to QuestionRepository
-    // PUT api/quizzes/5/questions/6
-    [HttpPut("{id}/questions/{qid}")]
-    public IActionResult PutQuestion(int id, int qid, [FromBody] QuestionUpdateModel value)
+    // PUT api/quizzes/{quizId}/questions/{questionId}
+    [HttpPut("{quizId}/questions/{questionId}")]
+    public async Task<IActionResult> UpdateQuestion(int quizId, int questionId, [FromBody] QuestionUpdateModel model)
     {
-        const string sql = "UPDATE Question SET Text = @Text, CorrectAnswerId = @CorrectAnswerId WHERE Id = @QuestionId";
-        int rowsUpdated = _connection.Execute(sql, new { QuestionId = qid, Text = value.Text, CorrectAnswerId = value.CorrectAnswerId });
-        if (rowsUpdated == 0)
-            return NotFound();
-        return NoContent();
-    }
+        var command = new UpdateQuestionCommand
+        {
+            QuizId = quizId,
+            QuestionId = questionId,
+            Text = model.Text,
+            CorrectAnswerId = model.CorrectAnswerId
+        };
+        var success = await _questionCommandHandler.HandleAsync(command);
 
-    //TODO: add db code to QuestionRepository
-    // DELETE api/quizzes/5/questions/6
-    [HttpDelete]
-    [Route("{id}/questions/{qid}")]
-    public IActionResult DeleteQuestion(int id, int qid)
-    {
-        const string sql = "DELETE FROM Question WHERE Id = @QuestionId";
-        _connection.ExecuteScalar(sql, new { QuestionId = qid });
-        return NoContent();
-    }
-
-    //TODO: add db code to AnswerRepository
-    // POST api/quizzes/5/questions/6/answers
-    [HttpPost]
-    [Route("{id}/questions/{qid}/answers")]
-    public IActionResult PostAnswer(int id, int qid, [FromBody] AnswerCreateModel value)
-    {
-        const string sql = "INSERT INTO Answer (Text, QuestionId) VALUES(@Text, @QuestionId); SELECT LAST_INSERT_ROWID();";
-        var answerId = _connection.ExecuteScalar(sql, new { Text = value.Text, QuestionId = qid });
-        return Created($"/api/quizzes/{id}/questions/{qid}/answers/{answerId}", null);
-    }
-
-    //TODO: add db code to AnswerRepository
-    // PUT api/quizzes/5/questions/6/answers/7
-    [HttpPut("{id}/questions/{qid}/answers/{aid}")]
-    public IActionResult PutAnswer(int id, int qid, int aid, [FromBody] AnswerUpdateModel value)
-    {
-        const string sql = "UPDATE Answer SET Text = @Text WHERE Id = @AnswerId";
-        int rowsUpdated = _connection.Execute(sql, new { AnswerId = qid, Text = value.Text });
-        if (rowsUpdated == 0)
-            return NotFound();
-        return NoContent();
-    }
-
-    //TODO: add db code to AnswerRepository
-    // DELETE api/quizzes/5/questions/6/answers/7
-    [HttpDelete]
-    [Route("{id}/questions/{qid}/answers/{aid}")]
-    public IActionResult DeleteAnswer(int id, int qid, int aid)
-    {
-        const string sql = "DELETE FROM Answer WHERE Id = @AnswerId";
-        _connection.ExecuteScalar(sql, new { AnswerId = aid });
-        return NoContent();
-    }
-
-    //TODO: add db code to UserQuizRepository
-    //TODO: save each submitted answer to database (suggested schema in 003-CreateUserAnswerTable.sql)    
-    // POST api/quiz/5/submit/5/5
-    [HttpGet]
-    [Route("{id}/questions/{qid}/submit/{aId}")]
-    public async Task<ActionResult<bool>> SubmitAnswerAsync(int id, int qid, int aId)
-    {
-        const string questionsSql = "SELECT * FROM Question WHERE QuizId = @QuizId AND Id = @QuestionId;";
-        var question = await _connection.QueryFirstAsync<Question>(questionsSql, new { QuizId = id, QuestionId = qid });
-
-        if (question == null)
+        if (!success)
             return NotFound();
 
-        return question.CorrectAnswerId == aId;
+        return NoContent();
+    }
 
+
+    // DELETE api/quizzes/{quizId}/questions/{questionId}
+    [HttpDelete("{quizId}/questions/{questionId}")]
+    public async Task<IActionResult> DeleteQuestion(int quizId, int questionId)
+    {
+        var command = new DeleteQuestionCommand
+        {
+            QuizId = quizId,
+            QuestionId = questionId
+        };
+        var success = await _questionCommandHandler.HandleAsync(command);
+
+        if (!success)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    // POST api/quizzes/{quizId}/questions/{questionId}/answers
+    [HttpPost("{quizId}/questions/{questionId}/answers")]
+    public async Task<IActionResult> CreateAnswer(int quizId, int questionId, [FromBody] AnswerCreateModel model)
+    {
+        var command = new CreateAnswerCommand
+        {
+            QuizId = quizId,
+            QuestionId = questionId,
+            Text = model.Text
+        };
+        var answerId = await _answerCommandHandler.HandleAsync(command);
+
+        return Created($"/api/quizzes/{quizId}/questions/{questionId}/answers/{answerId}", null);
+    }
+
+    // PUT api/quizzes/{quizId}/questions/{questionId}/answers/{answerId}
+    [HttpPut("{quizId}/questions/{questionId}/answers/{answerId}")]
+    public async Task<IActionResult> UpdateAnswer(int quizId, int questionId, int answerId, [FromBody] AnswerUpdateModel model)
+    {
+        var command = new UpdateAnswerCommand
+        {
+            QuizId = quizId,
+            QuestionId = questionId,
+            AnswerId = answerId,
+            Text = model.Text
+        };
+        var success = await _answerCommandHandler.HandleAsync(command);
+
+        if (!success)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    // DELETE api/quizzes/{quizId}/questions/{questionId}/answers/{answerId}
+    [HttpDelete("{quizId}/questions/{questionId}/answers/{answerId}")]
+    public async Task<IActionResult> DeleteAnswer(int quizId, int questionId, int answerId)
+    {
+        var command = new DeleteAnswerCommand
+        {
+            QuizId = quizId,
+            QuestionId = questionId,
+            AnswerId = answerId
+        };
+        var success = await _answerCommandHandler.HandleAsync(command);
+
+        if (!success)
+            return NotFound();
+
+        return NoContent();
+    }
+
+
+    // GET api/quizzes/{quizId}/questions/{questionId}/submit/{answerId}
+    [HttpGet("{quizId}/questions/{questionId}/submit/{answerId}")]
+    public async Task<ActionResult<bool>> SubmitAnswer(int quizId, int questionId, int answerId)
+    {
+        var command = new SubmitAnswerCommand
+        {
+            QuizId = quizId,
+            QuestionId = questionId,
+            AnswerId = answerId
+        };
+        var isCorrect = await _quizQueryHandler.HandleAsync(command);
+
+        return Ok(isCorrect);
     }
 }
