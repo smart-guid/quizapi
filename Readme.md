@@ -41,7 +41,7 @@ Architectual Improvements of the Quiz Service
    
     Can deploy layers separately if needed
    
-    Easy to add cross-cutting concerns
+    Easy to add cross-cutting concerns (logging, caching, ect..)
 
 Optional Enhancements:
 
